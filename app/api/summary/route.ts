@@ -17,12 +17,19 @@ export async function GET(req: NextRequest) {
     ORDER BY days DESC
   `;
 
-  return NextResponse.json(
-    rows.rows.map((r) => ({
+  const totals = await sql`
+    SELECT COUNT(DISTINCT date) as total_days, COUNT(DISTINCT country) as total_countries
+    FROM checkins
+  `;
+
+  return NextResponse.json({
+    total_days: parseInt(totals.rows[0].total_days),
+    total_countries: parseInt(totals.rows[0].total_countries),
+    countries: rows.rows.map((r) => ({
       country: r.country,
       country_name: r.country_name,
       flag: countryFlag(r.country),
       days: parseInt(r.days),
-    }))
-  );
+    })),
+  });
 }
