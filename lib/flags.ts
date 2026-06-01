@@ -4,6 +4,6 @@ export function countryFlag(code: string): string {
   return code
     .toUpperCase()
     .split('')
-    .map((c) => String.fromCodePoint(0x1f1e0 - 65 + c.charCodeAt(0)))
+    .map((c) => String.fromCodePoint(0x1f1e6 - 65 + c.charCodeAt(0)))
     .join('');
 }
