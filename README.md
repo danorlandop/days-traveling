@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bounded — iPhone Country Day Tracker
 
-## Getting Started
+iPhone home screen widget showing your current country flag + number of days there.
 
-First, run the development server:
+## How it works
+
+1. An **iOS Shortcut** runs at midnight daily and posts your GPS location to this app
+2. The **Vercel backend** reverse-geocodes the coordinates → stores the country + date
+3. The **Scriptable widget** fetches today's country and renders it on your home screen
+
+---
+
+## Setup
+
+### 1. Deploy to Vercel
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm i -g vercel
+vercel
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Add Postgres database
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+In the Vercel dashboard → Storage → Connect a database (Neon recommended, free tier).  
+The `DATABASE_URL` env var is set automatically.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Set your secret
 
-## Learn More
+```bash
+vercel env add CHECKIN_SECRET
+# Enter any random string, e.g. the output of: openssl rand -hex 16
+```
 
-To learn more about Next.js, take a look at the following resources:
+Copy this secret — you'll need it in both the iOS Shortcut and the Scriptable widget.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 4. iOS Shortcut (runs daily at midnight)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Open **Shortcuts** app → Automation → New Automation → **Time of Day**
+2. Set time: **Midnight**, repeat: **Daily**
+3. Add actions:
+   - **Get Current Location** → save to variable `myLocation`
+   - **Get Details of Location** → Latitude from `myLocation` → save to `myLat`
+   - **Get Details of Location** → Longitude from `myLocation` → save to `myLon`
+   - **URL**: `https://YOUR_APP.vercel.app/api/checkin`
+   - **Get Contents of URL**:
+     - Method: POST
+     - Headers: `Authorization` = `Bearer YOUR_SECRET`
+     - Body (JSON): `{"lat": myLat, "lon": myLon}`
+4. Turn off "Ask Before Running" → Done
 
-## Deploy on Vercel
+### 5. Scriptable widget
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Install **Scriptable** from the App Store (free)
+2. Open Scriptable → tap **+** → paste contents of `scriptable/bounded-widget.js`
+3. Edit the top two lines:
+   ```js
+   const API_URL = "https://YOUR_APP.vercel.app/api/today";
+   const SECRET  = "YOUR_CHECKIN_SECRET";
+   ```
+4. Tap the play button → you should see the widget preview
+5. Long-press your iPhone home screen → **+** → search **Scriptable** → pick small widget → Edit Widget → Script: `bounded-widget`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Testing
+
+```bash
+# Test checkin (Madrid, Spain)
+curl -X POST https://YOUR_APP.vercel.app/api/checkin \
+  -H "Authorization: Bearer YOUR_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"lat": 40.4168, "lon": -3.7038}'
+
+# Test today endpoint
+curl https://YOUR_APP.vercel.app/api/today \
+  -H "Authorization: Bearer YOUR_SECRET"
+
+# Full country summary
+curl https://YOUR_APP.vercel.app/api/summary \
+  -H "Authorization: Bearer YOUR_SECRET"
+```
